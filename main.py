@@ -5,7 +5,35 @@ import requests
 import json
 import re
 
-app = FastAPI()
+description = """
+Unofficial Fiverr API helps you to get:
+
+* Seller details
+* Seller gigs
+* Seller reviews
+"""
+
+tags_metadata = [
+    {
+        "name": "Home"
+    },
+    {
+        "name": "Seller Details",
+        "description": "Get details about seller"
+    },
+]
+
+app = FastAPI(
+    title="Unofficial Fiverr API",
+    description=description,
+    version="1.1",
+    contact={
+        "name": "Salman Shaikh",
+        "url": "https://salmannotkhan.github.io/",
+        "email": "tony903212@gmail.com"
+    },
+    openapi_tags=tags_metadata
+)
 
 app.add_middleware(
     CORSMiddleware,
@@ -58,14 +86,16 @@ def get_user_data(username: str):
     return seller_data
 
 
-@app.get("/")
+@app.get("/", tags=["Home"])
 async def index():
     return {
         "Welcome to": "Unofficial Fiverr API",
-        "For docs": "Visit /docs"}
+        "For docs": "Visit /docs",
+        "For redocs": "Visit /redoc",
+    }
 
 
-@app.get("/{username}/details")
+@app.get("/{username}", tags=["Seller Details"])
 async def get_seller_details(username: str):
     user_data = get_user_data(username)
     seller_card = user_data["userData"]["seller_card"]
@@ -79,13 +109,13 @@ async def get_seller_details(username: str):
     return seller_card
 
 
-@app.get("/{username}/gigs")
+@app.get("/{username}/gigs", tags=["Seller Details"])
 async def get_gigs(username: str):
     user_data = get_user_data(username)
     return user_data["gigs"]["gigs"]
 
 
-@app.get("/{username}/reviews")
+@app.get("/{username}/reviews", tags=["Seller Details"])
 async def get_reviews(username: str, filter_by: FilterBy = None,
                       sort_by: SortBy = None, group_by_buyer: bool = True):
     URL = "https://www.fiverr.com/ratings/index"
