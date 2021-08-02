@@ -21,6 +21,11 @@ class FilterBy(str, Enum):
     negative = "negative"
 
 
+class SortBy(str, Enum):
+    recent = "recent"
+    relevant = "relevant"
+
+
 headers = {
     "User-Agent":
     "Mozilla/5.0 (X11; Linux x86_64; rv:90.0) Gecko/20100101 Firefox/90.0",
@@ -30,12 +35,6 @@ headers = {
     "Sec-Fetch-User": "?1",
     "Upgrade-Insecure-Requests": "1",
     "TE": "trailers"
-}
-
-payload = {
-    "as_seller": "true",
-    "last_score": "0",
-    "page_size": "5"
 }
 reviews_headers = {
     "User-Agent":
@@ -68,15 +67,18 @@ async def index():
 
 @app.get("/{username}/reviews")
 async def get_reviews(username: str, filter_by: FilterBy = None,
-                      group_by_buyer: bool = True):
+                      sort_by: SortBy = None, group_by_buyer: bool = True):
     URL = "https://www.fiverr.com/ratings/index"
     user_data = get_user_data(username)
     # Adding CSRF Token
     reviews_headers["X-CSRF-Token"] = user_data["requestContext"]["csrf_token"]
     # Setting up payload
+    payload = {}
     payload["user_id"] = user_data["userData"]["user"]["id"]
     if filter_by:
         payload["filter_by"] = filter_by.value
+    if sort_by:
+        payload["sort_by"] = sort_by.value
     reviews = []
     while True:
         data = requests.get(URL, headers=headers, data=payload)
@@ -85,12 +87,12 @@ async def get_reviews(username: str, filter_by: FilterBy = None,
         if not data["has_next"]:
             break
         payload["last_star_rating_id"] = reviews[-1]["id"]
-    if not group_by_buyer:
-        return reviews
-    merged_reviews = {}
-    for review in reviews:
-        if review["username"] in merged_reviews.keys():
-            merged_reviews[review["username"]].append(review)
-        else:
-            merged_reviews[review["username"]] = [review]
-    return merged_reviews
+    if group_by_buyer:
+        merged_reviews = {}
+        for review in reviews:
+            if review["username"] in merged_reviews.keys():
+                merged_reviews[review["username"]].append(review)
+            else:
+                merged_reviews[review["username"]] = [review]
+        return merged_reviews
+    return reviews
