@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from enum import Enum
 import requests
 import json
 import re
@@ -13,6 +14,12 @@ app.add_middleware(
     allow_methods=["GET"],
     allow_headers=["*"],
 )
+
+
+class FilterBy(str, Enum):
+    positive = "positive"
+    negative = "negative"
+
 
 headers = {
     "User-Agent":
@@ -53,29 +60,31 @@ def get_user_data(username: str):
 
 
 @app.get("/")
-def index():
+async def index():
     return {
         "Welcome to": "Unofficial Fiverr API",
         "For docs": "Visit /docs"}
 
 
 @app.get("/{username}/reviews")
-def get_reviews(username: str, filter_by: str = "positive",
-                group_by_buyer: bool = True):
+async def get_reviews(username: str, filter_by: FilterBy = None,
+                      group_by_buyer: bool = True):
     URL = "https://www.fiverr.com/ratings/index"
     user_data = get_user_data(username)
-    data = user_data["userData"]["buying_reviews"]
-    reviews = data["reviews"]
-    # Modifying headers
+    # Adding CSRF Token
     reviews_headers["X-CSRF-Token"] = user_data["requestContext"]["csrf_token"]
-    # Setting payload
+    # Setting up payload
     payload["user_id"] = user_data["userData"]["user"]["id"]
-    payload["filter_by"] = filter_by
-    while data["has_next"]:
-        payload["last_star_rating_id"] = reviews[-1]["id"]
+    if filter_by:
+        payload["filter_by"] = filter_by.value
+    reviews = []
+    while True:
         data = requests.get(URL, headers=headers, data=payload)
         data = data.json()
         reviews.extend(data["reviews"])
+        if not data["has_next"]:
+            break
+        payload["last_star_rating_id"] = reviews[-1]["id"]
     if not group_by_buyer:
         return reviews
     merged_reviews = {}
