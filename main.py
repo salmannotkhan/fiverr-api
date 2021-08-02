@@ -65,6 +65,20 @@ async def index():
         "For docs": "Visit /docs"}
 
 
+@app.get("/{username}/details")
+async def get_seller_details(username: str):
+    user_data = get_user_data(username)
+    seller_card = user_data["userData"]["seller_card"]
+    seller_profile = user_data["userData"]["seller_profile"]
+    seller_card.update(seller_profile)
+    seller_card.pop("biEventData")
+    seller_card.pop("collectProps")
+    seller_card.pop("identities")
+    seller_card.pop("currency")
+    seller_card.pop("abTests")
+    return seller_card
+
+
 @app.get("/{username}/gigs")
 async def get_gigs(username: str):
     user_data = get_user_data(username)
