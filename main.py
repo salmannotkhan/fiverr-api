@@ -65,6 +65,12 @@ async def index():
         "For docs": "Visit /docs"}
 
 
+@app.get("/{username}/gigs")
+async def get_gigs(username: str):
+    user_data = get_user_data(username)
+    return user_data["gigs"]["gigs"]
+
+
 @app.get("/{username}/reviews")
 async def get_reviews(username: str, filter_by: FilterBy = None,
                       sort_by: SortBy = None, group_by_buyer: bool = True):
