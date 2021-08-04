@@ -30,7 +30,7 @@ tags_metadata = [
 app = FastAPI(
     title="Unofficial Fiverr API",
     description=description,
-    version="1.1",
+    version="1.2",
     contact={
         "name": "Salman Shaikh",
         "url": "https://salmannotkhan.github.io/",
