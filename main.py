@@ -1,5 +1,5 @@
-from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI
 from enum import Enum
 import requests
 import json
@@ -11,6 +11,10 @@ Unofficial Fiverr API helps you to get:
 * Seller details
 * Seller gigs
 * Seller reviews
+    * Group by buyers
+    * Filter by Impression
+    * Sort by time
+    * Limit no. of reviews
 """
 
 tags_metadata = [
@@ -117,8 +121,9 @@ async def get_gigs(username: str):
 
 @app.get("/{username}/reviews", tags=["Seller Details"])
 async def get_reviews(username: str, filter_by: FilterBy = None,
-                      sort_by: SortBy = None, group_by_buyer: bool = True):
-    URL = "https://www.fiverr.com/ratings/index"
+                      sort_by: SortBy = None, group_by_buyer: bool = False,
+                      limit: int = 9999):
+    url = "https://www.fiverr.com/ratings/index"
     user_data = get_user_data(username)
     # Adding CSRF Token
     reviews_headers["X-CSRF-Token"] = user_data["requestContext"]["csrf_token"]
@@ -131,12 +136,13 @@ async def get_reviews(username: str, filter_by: FilterBy = None,
         payload["sort_by"] = sort_by.value
     reviews = []
     while True:
-        data = requests.get(URL, headers=headers, data=payload)
+        data = requests.get(url, headers=headers, data=payload)
         data = data.json()
         reviews.extend(data["reviews"])
-        if not data["has_next"]:
+        if not data["has_next"] or len(reviews) >= limit:
             break
         payload["last_star_rating_id"] = reviews[-1]["id"]
+    reviews = reviews[:limit]
     if group_by_buyer:
         merged_reviews = {}
         for review in reviews:
