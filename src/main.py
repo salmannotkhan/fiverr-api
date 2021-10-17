@@ -1,5 +1,6 @@
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI
+from typing import Union
 from enum import Enum
 import requests
 import json
@@ -120,21 +121,21 @@ async def get_gigs(username: str):
 
 
 @app.get("/{username}/reviews", tags=["Seller Details"])
-async def get_reviews(username: str, filter_by: FilterBy = None,
-                      sort_by: SortBy = None, group_by_buyer: bool = False,
+async def get_reviews(username: str, filter_by: Union[FilterBy, None]  = None ,
+                      sort_by: Union[SortBy, None] = None, group_by_buyer: bool = False,
                       limit: int = 9999):
     url = "https://www.fiverr.com/ratings/index"
     user_data = get_user_data(username)
     # Adding CSRF Token
     reviews_headers["X-CSRF-Token"] = user_data["requestContext"]["csrf_token"]
     # Setting up payload
-    payload = {}
+    payload: dict[str, str] = {}
     payload["user_id"] = user_data["userData"]["user"]["id"]
     if filter_by:
         payload["filter_by"] = filter_by.value
     if sort_by:
         payload["sort_by"] = sort_by.value
-    reviews = []
+    reviews: list[dict[str, str]] = []
     while True:
         data = requests.get(url, headers=headers, data=payload)
         data = data.json()
@@ -144,7 +145,7 @@ async def get_reviews(username: str, filter_by: FilterBy = None,
         payload["last_star_rating_id"] = reviews[-1]["id"]
     reviews = reviews[:limit]
     if group_by_buyer:
-        merged_reviews = {}
+        merged_reviews: dict[str, list[dict[str, str]]] = {}
         for review in reviews:
             if review["username"] in merged_reviews.keys():
                 merged_reviews[review["username"]].append(review)
