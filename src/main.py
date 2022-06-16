@@ -13,7 +13,6 @@ Unofficial Fiverr API helps you to get:
 from typing import Union
 from enum import Enum
 import json
-import re
 
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI
@@ -92,15 +91,19 @@ def get_user_data(username: str):
     """
     Get basic seller details and CSRF Token
     """
-    session = requests.Session()
-    seller_url = f"https://www.fiverr.com/{username}"
-    data = session.get(seller_url, headers=headers)
-    soup = BeautifulSoup(data.text, "lxml")
-    # TODO: Take a look at Sec-Fetch-Dest Sec-Fetch-Mode Sec-Fetch-Site
-    # print(soup.find("script", id="perseus-initial-props").get_text())
-    seller_data = json.loads(soup.find("script", id="perseus-initial-props").string or "null")
-    seller_data["csrfToken"] = soup.find("meta", {"property": "csrfToken"}).get("content")
-    return session, seller_data
+    try: 
+        session = requests.Session()
+        seller_url = f"https://www.fiverr.com/{username}"
+        data = session.get(seller_url, headers=headers)
+        soup = BeautifulSoup(data.text, "lxml")
+        # print(soup.find("script", id="perseus-initial-props").get_text())
+        seller_data = json.loads(soup.find("script", id="perseus-initial-props").string or "null")
+        seller_data["csrfToken"] = soup.find("meta", {"property": "csrfToken"}).get("content")
+        return session, seller_data
+    except Exception:
+        print(data)
+        print(data.text)
+        print(soup.find("script", id="perseus-initial-props"))
 
 
 @app.get("/", tags=["Home"])
