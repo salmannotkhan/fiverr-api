@@ -4,12 +4,15 @@ bs4==0.0.1
 certifi==2021.5.30
 charset-normalizer==2.0.4
 click==8.0.1
+cloudscraper==1.2.64
 fastapi==0.68.0
 h11==0.12.0
 idna==3.2
 lxml==4.6.3
 pydantic==1.8.2
+pyparsing==3.0.9
 requests==2.26.0
+requests-toolbelt==0.10.0
 soupsieve==2.2.1
 starlette==0.14.2
 typing-extensions==3.10.0.0
