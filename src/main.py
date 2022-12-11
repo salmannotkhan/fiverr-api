@@ -126,9 +126,10 @@ async def get_transactions(after: Union[str, None] = None, token=Depends(bearer)
     """
     Use `endCursor` as `after` for pagination
     """
+    scraper = cloudscraper.create_scraper()
     url = f"{URL}/perseus/financial-dashboard/api/earnings/transactions"
     cookies = {"hodor_creds": token.credentials}
-    res = requests.get(
+    res = scraper.get(
         url,
         headers=common_headers,
         cookies=cookies,
