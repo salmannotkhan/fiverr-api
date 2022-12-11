@@ -15,6 +15,7 @@ Unofficial Fiverr API helps you to get:
 from typing import Union
 from enum import Enum
 import json
+from cloudscraper.exceptions import CloudflareChallengeError
 
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer
@@ -130,13 +131,18 @@ async def get_transactions(after: Union[str, None] = None, token=Depends(bearer)
     scraper = cloudscraper.create_scraper()
     url = f"{URL}/perseus/financial-dashboard/api/earnings/transactions"
     cookies = {"hodor_creds": token.credentials}
-    res = scraper.get(
-        url,
-        headers=common_headers,
-        cookies=cookies,
-        allow_redirects=False,
-        params={"after": after},
-    )
+    while True:
+        try:
+            res = scraper.get(
+                url,
+                headers=common_headers,
+                cookies=cookies,
+                allow_redirects=False,
+                params={"after": after},
+            )
+            break
+        except CloudflareChallengeError:
+            pass
     data = res.json()
     data["data"]["transactions"] = list(
         map(
@@ -225,10 +231,16 @@ async def get_orders(username: str, token=Depends(bearer)):
     results = []
     scraper = cloudscraper.create_scraper()
     while True:
-        res = scraper.get(
-            url, headers=common_headers, cookies=cookies, allow_redirects=False
-        )
-        if res.status_code != 200:
+        while True:
+            try:
+                res = scraper.get(
+                    url, headers=common_headers, cookies=cookies, allow_redirects=False
+                )
+                break
+            except CloudflareChallengeError:
+                pass
+
+        if res.status_code == 302:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized profile"
             )
