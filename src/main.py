@@ -85,12 +85,13 @@ class SortBy(str, Enum):
 common_headers = {
     "User-Agent": "Mozilla Firefox",
     "Accept": "application/json",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Accept-Encoding": "gzip, deflate",
     "Sec-Fetch-Dest": "empty",
     "Sec-Fetch-Mode": "cors",
     "Sec-Fetch-Site": "same-origin",
     "X-Requested-With": "XMLHttpRequest",
 }
-
 
 def get_user_data(username: str):
     """
@@ -126,17 +127,17 @@ async def get_transactions(after: Union[str, None] = None, token=Depends(bearer)
     """
     Use `endCursor` as `after` for pagination
     """
-    scraper = cloudscraper.create_scraper()
+    # scraper = cloudscraper.create_scraper()
     url = f"{URL}/perseus/financial-dashboard/api/earnings/transactions"
     cookies = {"hodor_creds": token.credentials}
-    res = scraper.get(
+    res = requests.get(
         url,
         headers=common_headers,
         cookies=cookies,
         allow_redirects=False,
         params={"after": after},
     )
-    print(res.text)
+    print(res.request.headers)
 
     data = res.json()
     data["data"]["transactions"] = list(
