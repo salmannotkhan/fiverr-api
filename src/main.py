@@ -135,7 +135,8 @@ async def get_transactions(after: Union[str, None] = None, token=Depends(bearer)
         allow_redirects=False,
         params={"after": after},
     )
-    print(res.request.headers)
+    print(res.text)
+
     data = res.json()
     data["data"]["transactions"] = list(
         map(
