@@ -137,8 +137,6 @@ async def get_transactions(after: Union[str, None] = None, token=Depends(bearer)
         allow_redirects=False,
         params={"after": after},
     )
-    print(res.request.headers)
-
     data = res.json()
     data["data"]["transactions"] = list(
         map(
@@ -225,8 +223,9 @@ async def get_orders(username: str, token=Depends(bearer)):
     url = f"{URL}/users/{username}/manage_orders/type/completed"
     cookies = {"hodor_creds": token.credentials}
     results = []
+    scraper = cloudscraper.create_scraper()
     while True:
-        res = requests.get(
+        res = scraper.get(
             url, headers=common_headers, cookies=cookies, allow_redirects=False
         )
         if res.status_code != 200:
