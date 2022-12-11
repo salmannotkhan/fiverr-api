@@ -1,9 +1,11 @@
 """
 Unofficial Fiverr API helps you to get:
 
-* Seller details
-* Seller gigs
-* Seller reviews
+* Seller Details
+* Seller Gigs
+* Seller Orders
+* Seller Transactions
+* Seller Reviews
     * Group by buyers
     * Filter by Impression
     * Sort by time
@@ -15,21 +17,31 @@ from enum import Enum
 import json
 
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi import FastAPI
+from fastapi.security import HTTPBearer
+from fastapi import Depends, FastAPI, HTTPException, status
 from bs4 import BeautifulSoup
 import requests
 import cloudscraper
 
 DESCRIPTION = __doc__ or ""
 tags_metadata = [
-    {
-        "name": "Home"
-    },
-    {
-        "name": "Seller Details",
-        "description": "Get details about seller"
-    },
+    {"name": "Home"},
+    {"name": "Seller Details", "description": "Get details about seller"},
 ]
+
+URL = "https://www.fiverr.com"
+bearer_description = f"""
+### Steps to obtain authorization token from Fiverr:
+- Login into your [Fiverr account]({URL})
+- Open Network Tab of browser
+- Select any `HTML` or `XHR` request
+- Go to `Cookies` tab
+- Use `hodor_creds` as authorization token
+
+> I DO NOT store your credentials. You can verify that by viewing source code [here](https://www.github.com/salmannotkhan/fiverr-api)
+"""
+
+bearer = HTTPBearer(auto_error=True, description=bearer_description)
 
 app = FastAPI(
     title="Unofficial Fiverr API",
@@ -38,9 +50,9 @@ app = FastAPI(
     contact={
         "name": "Salman Shaikh",
         "url": "https://salmannotkhan.github.io/",
-        "email": "tony903212@gmail.com"
+        "email": "tony903212@gmail.com",
     },
-    openapi_tags=tags_metadata
+    openapi_tags=tags_metadata,
 )
 
 app.add_middleware(
@@ -56,6 +68,7 @@ class FilterBy(str, Enum):
     """
     Filter by Enum Class
     """
+
     POSITIVE = "positive"
     NEGATIVE = "negative"
 
@@ -64,13 +77,14 @@ class SortBy(str, Enum):
     """
     Sort by Enum Class
     """
+
     RECENT = "recent"
     RELEVANT = "relevant"
 
 
-reviews_headers = {
-    "User-Agent":
-    "Mozilla/5.0 (X11; Linux x86_64; rv:90.0) Gecko/20100101 Firefox/90.0",
+common_headers = {
+    "User-Agent": "Mozilla Firefox",
+    "Accept": "application/json",
     "Sec-Fetch-Dest": "empty",
     "Sec-Fetch-Mode": "cors",
     "Sec-Fetch-Site": "same-origin",
@@ -83,11 +97,15 @@ def get_user_data(username: str):
     Get basic seller details and CSRF Token
     """
     scraper = cloudscraper.create_scraper()
-    seller_url = f"https://www.fiverr.com/{username}"
+    seller_url = f"{URL}/{username}"
     data = scraper.get(seller_url)
     soup = BeautifulSoup(data.text, "lxml")
-    seller_data = json.loads(soup.find("script", id="perseus-initial-props").string or "null")
-    seller_data["csrfToken"] = soup.find("meta", {"property": "csrfToken"}).get("content")
+    seller_data = json.loads(
+        soup.find("script", id="perseus-initial-props").string or "null"
+    )
+    seller_data["csrfToken"] = soup.find("meta", {"property": "csrfToken"}).get(
+        "content"
+    )
     return scraper.cookies, seller_data
 
 
@@ -101,6 +119,29 @@ async def index():
         "For docs": "Visit /docs",
         "For redocs": "Visit /redoc",
     }
+
+
+@app.get("/transaction", tags=["Seller Details"])
+async def get_transactions(after: Union[str, None] = None, token=Depends(bearer)):
+    """
+    Use `endCursor` as `after` for pagination
+    """
+    url = f"{URL}/perseus/financial-dashboard/api/earnings/transactions"
+    cookies = {"hodor_creds": token.credentials}
+    res = requests.get(
+        url,
+        headers=common_headers,
+        cookies=cookies,
+        allow_redirects=False,
+        params={"after": after},
+    )
+    data = res.json()
+    data["data"]["transactions"] = list(
+        map(
+            lambda x: {**x, "amount": (x["amount"] / 100)}, data["data"]["transactions"]
+        )
+    )
+    return data
 
 
 @app.get("/{username}", tags=["Seller Details"])
@@ -125,20 +166,24 @@ async def get_gigs(username: str):
 
 
 @app.get("/{username}/reviews", tags=["Seller Details"])
-async def get_reviews(username: str, filter_by: Union[FilterBy, None] = None,
-                      sort_by: Union[SortBy, None] = None, group_by_buyer: bool = False,
-                      limit: int = 9999):
+async def get_reviews(
+    username: str,
+    filter_by: Union[FilterBy, None] = None,
+    sort_by: Union[SortBy, None] = None,
+    group_by_buyer: bool = False,
+    limit: int = 9999,
+):
     """
     Get seller reviews
     """
     session = requests.session()
     cookies, user_data = get_user_data(username)
     session.cookies = cookies
-    url = f"https://www.fiverr.com/reviews/user_page/fetch_user_reviews/{user_data['userData']['user']['id']}"
+    url = f"{URL}/reviews/user_page/fetch_user_reviews/{user_data['userData']['user']['id']}"
 
     # Adding CSRF Token
-    reviews_headers["X-CSRF-Token"] = user_data["csrfToken"]
-    reviews_headers["Referer"] = f"https://www.fiverr.com/{username}"
+    common_headers["X-CSRF-Token"] = user_data["csrfToken"]
+    common_headers["Referer"] = f"https://www.fiverr.com/{username}"
     # Setting up payload
     payload: dict[str, str] = {}
     payload["user_id"] = user_data["userData"]["user"]["id"]
@@ -150,7 +195,7 @@ async def get_reviews(username: str, filter_by: Union[FilterBy, None] = None,
 
     scraper = cloudscraper.create_scraper(sess=session, browser="chrome")
     while True:
-        data = scraper.get(url, headers=reviews_headers, params=payload)
+        data = scraper.get(url, headers=common_headers, params=payload)
         data = data.json()
         reviews.extend(data["reviews"])
         if not data["has_next"] or len(reviews) >= limit:
@@ -169,3 +214,24 @@ async def get_reviews(username: str, filter_by: Union[FilterBy, None] = None,
         return merged_reviews
     session.close()
     return reviews
+
+
+@app.get("/{username}/orders", tags=["Seller Details"])
+async def get_orders(username: str, token=Depends(bearer)):
+    url = f"{URL}/users/{username}/manage_orders/type/completed"
+    cookies = {"hodor_creds": token.credentials}
+    results = []
+    while True:
+        res = requests.get(
+            url, headers=common_headers, cookies=cookies, allow_redirects=False
+        )
+        if res.status_code != 200:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized profile"
+            )
+        data = res.json()
+        results.extend(data["results"])
+        if not data.get("load_more_url"):
+            break
+        url = "https://www.fiverr.com" + data["load_more_url"]
+    return results
